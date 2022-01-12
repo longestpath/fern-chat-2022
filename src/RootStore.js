@@ -16,7 +16,7 @@ import {
 
 // create a type used by your RootStore
 const Channel = types.model("Channel", {
-  id: types.number, // I'm gonna error out unless you change me to a string/ identifier
+  id: types.identifier, // I'm gonna error out unless you change me to a string/ identifier
   name: types.string,
 });
 
@@ -24,7 +24,7 @@ const Channel = types.model("Channel", {
 const RootStore = types
   .model("RootStore", {
     channels: types.optional(types.array(Channel), []),
-    isLoggedIn: types.optional(types.boolean, true), // set to true for now since we don't really have login sessions yet
+    isLoggedIn: types.optional(types.boolean, false), // set to true for now since we don't really have login sessions yet
   })
   .views((self) => ({
     get channelsSorted() {
@@ -36,6 +36,11 @@ const RootStore = types
     let unsubscribeFromChannelsFeed; // use for cleanup
     const startStreamingChannels = () => {
       const db = getFirestore();
+
+      const q = query(collection(db, "channels"));
+      onSnapshot(q, querySnapshot => {
+        self.updateChannels(querySnapshot);
+      });
       // make a query and call onSnapshot to subscribe to changes from the query
     };
 
@@ -43,34 +48,42 @@ const RootStore = types
       if (unsubscribeFromChannelsFeed) {
         unsubscribeFromChannelsFeed();
       }
-    }
+    };
     
      // semi-private function only used to encapsulate channel update
     const updateChannels = (querySnapshot) => {
-      // clear out channels 
+      self.channels = [];
+      querySnapshot.forEach(doc => {
+        self.channels.push({id: doc.id, name: doc.data().name});
+      });
     };
 
     const addChannel = flow(function* addChannel() {
       // made this function async just because
-      self.channels.push({
-        id: self.channels.length,
-        name: uniqueNamesGenerator({
+      const db = getFirestore();
+      self.isLoading = true;
+      // Dan: Flow is async? Who made the async?
+      yield addDoc(collection(db, "channels"), {
+          name: uniqueNamesGenerator({
           dictionaries: [adjectives, animals],
           length: 2,
           separator: "-",
-        }) /* names like: "awesome-ocelot" */,
+          })
       });
     });
 
     const login = () => {
       self.isLoggedIn = true;
-    }
+    };
 
     const logout = () => {
       self.isLoggedIn = false;
-    }
+    };
 
     return {
+      startStreamingChannels,
+      stopStreamingChannels,
+      updateChannels,
       addChannel,
       login,
       logout,

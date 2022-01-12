@@ -8,6 +8,8 @@ export default observer(function ChannelsScreen({ navigation }) {
 
   useEffect(() => {
     // start/ stop subscribe to channels here
+    rootStore.startStreamingChannels();
+    return rootStore.stopStreamingChannels;
   }, []);
 
   return (
